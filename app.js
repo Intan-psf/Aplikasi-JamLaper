@@ -542,6 +542,7 @@ function updateSyncUI(status) {
 // ==========================================
 function renderDashboard() {
     renderStats();
+    renderCharts();
     renderRiwayat();
 }
 
@@ -583,6 +584,319 @@ function animateNumber(id, target) {
             clearInterval(timer);
         }
     }, stepTime);
+}
+
+// ==========================================
+// CHART VISUALIZATION
+// ==========================================
+let chartInstances = {};
+
+function renderCharts() {
+    renderLaptopStatusChart();
+    renderTopLaptopsChart();
+    renderPeminjamanStatusChart();
+}
+
+function renderLaptopStatusChart() {
+    const ctx = document.getElementById('chartLaptopStatus');
+    if (!ctx) return;
+
+    if (chartInstances.laptopStatus) {
+        chartInstances.laptopStatus.destroy();
+    }
+
+    const laptops = AppState.laptops || [];
+    const tersedia = laptops.filter(l => normalizeLaptopStatus(l.STATUS) === 'tersedia').length;
+    const dipinjam = laptops.filter(l => normalizeLaptopStatus(l.STATUS) === 'dipinjam').length;
+    const rusak = laptops.filter(l => normalizeLaptopStatus(l.STATUS) === 'rusak').length;
+
+    chartInstances.laptopStatus = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Tersedia', 'Dipinjam', 'Rusak'],
+            datasets: [{
+                data: [tersedia, dipinjam, rusak],
+                backgroundColor: [
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(245, 158, 11, 0.8)',
+                    'rgba(239, 68, 68, 0.8)'
+                ],
+                borderColor: ['#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 3,
+                borderRadius: 8,
+                hoverBorderWidth: 5,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 12, weight: 600 },
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    },
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1
+                }
+            }
+        }
+    });
+}
+
+function renderTopLaptopsChart() {
+    const ctx = document.getElementById('chartTopLaptops');
+    if (!ctx) return;
+
+    if (chartInstances.topLaptops) {
+        chartInstances.topLaptops.destroy();
+    }
+
+    const peminjaman = AppState.peminjaman || [];
+    const laptopCount = {};
+
+    peminjaman.forEach(p => {
+        const id = p.LAPTOP_ID;
+        if (id) {
+            laptopCount[id] = (laptopCount[id] || 0) + 1;
+        }
+    });
+
+    const sorted = Object.entries(laptopCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    const labels = sorted.map(([id]) => id);
+    const data = sorted.map(([, count]) => count);
+
+    // Create gradient for each bar
+    const gradients = data.map((_, i) => {
+        const ratio = i / data.length;
+        return `rgba(59, 130, 246, ${0.6 + ratio * 0.4})`;
+    });
+
+    chartInstances.topLaptops = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.length > 0 ? labels : ['Tidak ada data'],
+            datasets: [{
+                label: 'Jumlah Peminjaman',
+                data: data.length > 0 ? data : [0],
+                backgroundColor: gradients,
+                borderColor: '#3b82f6',
+                borderWidth: 2,
+                borderRadius: 8,
+                hoverBackgroundColor: 'rgba(59, 130, 246, 0.9)',
+                hoverBorderWidth: 3
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { font: { size: 11, weight: 600 }, padding: 15 }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, font: { size: 11 } },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                },
+                y: {
+                    ticks: { font: { size: 11, weight: 600 } },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                }
+            }
+        }
+    });
+}
+
+function renderPeminjamanStatusChart() {
+    const ctx = document.getElementById('chartPeminjamanStatus');
+    if (!ctx) return;
+
+    if (chartInstances.peminjamanStatus) {
+        chartInstances.peminjamanStatus.destroy();
+    }
+
+    const peminjaman = AppState.peminjaman || [];
+    const aktif = peminjaman.filter(p => (p.STATUS || '').toLowerCase() === 'aktif').length;
+    const selesai = peminjaman.filter(p => (p.STATUS || '').toLowerCase() === 'selesai').length;
+
+    chartInstances.peminjamanStatus = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Aktif', 'Selesai'],
+            datasets: [{
+                data: [aktif, selesai],
+                backgroundColor: [
+                    'rgba(139, 92, 246, 0.8)',
+                    'rgba(99, 102, 241, 0.8)'
+                ],
+                borderColor: ['#8b5cf6', '#6366f1'],
+                borderWidth: 3,
+                borderRadius: 8,
+                hoverBorderWidth: 5,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 12, weight: 600 },
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    },
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1
+                }
+            }
+        }
+    });
+}
+
+// ==========================================
+// FAQ MODAL
+// ==========================================
+const FAQ_DATA = [
+    {
+        q: 'Bagaimana cara meminjam laptop?',
+        a: 'Klik tombol "Form Peminjaman" di dashboard, isi data peminjam, pilih laptop yang tersedia, dan atur tanggal peminjaman. Setelah submit, email konfirmasi akan dikirim otomatis.'
+    },
+    {
+        q: 'Berapa lama maksimal waktu peminjaman laptop?',
+        a: 'Maksimal waktu peminjaman adalah 5 hari kalender dari tanggal pinjam. Sistem akan memperingatkan melalui email H-1 dan H-0 (hari pengembalian).'
+    },
+    {
+        q: 'Apakah saya akan menerima notifikasi pengembalian?',
+        a: 'Ya, sistem akan mengirim email reminder otomatis 1 hari sebelum tanggal pengembalian (H-1) dan pada hari pengembalian (H-0) jika data email kamu sudah terdaftar.'
+    },
+    {
+        q: 'Bagaimana jika laptop mengalami kerusakan?',
+        a: 'Lapor kerusakan saat proses pengembalian. Pilih kondisi "Rusak Ringan" atau "Rusak Berat" dan berikan catatan detail tentang kerusakan tersebut.'
+    },
+    {
+        q: 'Apakah data peminjaman saya disimpan?',
+        a: 'Ya, semua data peminjaman disimpan di spreadsheet terpusat dan dapat dilihat di halaman "Riwayat Peminjaman" dengan berbagai filter.'
+    },
+    {
+        q: 'Bagaimana jika lupa password atau kode akses?',
+        a: 'Hubungi administrator untuk mendapatkan kode akses terbaru. Kode akses disimpan di spreadsheet dengan aman.'
+    },
+    {
+        q: 'Bisakah saya mengubah jadwal pengembalian setelah submit?',
+        a: 'Untuk mengubah jadwal, hubungi administrator. Sistem saat ini tidak mendukung perubahan jadwal otomatis setelah peminjaman didaftar.'
+    },
+    {
+        q: 'Apa fungsi grafik analitik?',
+        a: 'Grafik menampilkan statistik: status laptop (tersedia/dipinjam/rusak), top 5 laptop paling sering dipinjam, dan status peminjaman (aktif/selesai) untuk membantu analisis penggunaan.'
+    }
+];
+
+function showFAQModal() {
+    const modal = document.getElementById('faqModal');
+    const content = document.getElementById('faqContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = FAQ_DATA.map((item, idx) => `
+        <div style="
+            margin-bottom: 0;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            transition: all 0.25s ease;
+            border-left: 4px solid transparent;
+        " onmouseover="this.style.borderLeftColor='#4f46e5'; this.style.backgroundColor='#f8fafc';" 
+           onmouseout="this.style.borderLeftColor='transparent'; this.style.backgroundColor='transparent';">
+            <h4 style="
+                color: #1f2937;
+                font-weight: 700;
+                margin-bottom: 0.75rem;
+                font-size: 0.95rem;
+                display: flex;
+                align-items: flex-start;
+                gap: 0.75rem;
+            ">
+                <span style="
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 28px;
+                    height: 28px;
+                    background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+                    color: white;
+                    border-radius: 50%;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    flex-shrink: 0;
+                ">${idx + 1}</span>
+                <span>${escapeHtml(item.q)}</span>
+            </h4>
+            <p style="
+                color: #6b7280;
+                line-height: 1.7;
+                margin: 0;
+                margin-left: 40px;
+                font-size: 0.9rem;
+            ">${escapeHtml(item.a)}</p>
+        </div>
+    `).join('');
+
+    modal.style.display = 'flex';
+    modal.onclick = function(e) {
+        if (e.target === modal) closeFAQModal();
+    };
+}
+
+function closeFAQModal() {
+    const modal = document.getElementById('faqModal');
+    if (modal) modal.style.display = 'none';
 }
 
 // ==========================================
@@ -977,14 +1291,26 @@ function handlePeminjaman(e) {
 
     const laptopId = document.getElementById('pinjamLaptop').value;
     const nip = document.getElementById('pinjamNama').value;
+    const phone = document.getElementById('pinjamPhone').value.trim();
+    const email = document.getElementById('pinjamEmail').value.trim();
     const tim = document.getElementById('pinjamTim').value;
     const keperluan = document.getElementById('pinjamKeperluan').value;
     const deskripsi = document.getElementById('pinjamDeskripsi').value;
     const tglPinjam = document.getElementById('pinjamTglPinjam').value;
     const tglKembali = document.getElementById('pinjamTglKembali').value;
 
-    if (!laptopId || !nip || !keperluan || !tglPinjam || !tglKembali) {
+    if (!laptopId || !nip || !phone || !email || !keperluan || !tglPinjam || !tglKembali) {
         showToast('Mohon lengkapi semua field yang wajib!', 'error');
+        return;
+    }
+
+    if (!/^62\d{8,15}$/.test(phone)) {
+        showToast('No. HP harus dalam format 62XXXXXXXXXXX tanpa tanda + atau spasi.', 'error');
+        return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+        showToast('Alamat Gmail tidak valid. Gunakan format nama@gmail.com.', 'error');
         return;
     }
 
@@ -1019,6 +1345,8 @@ function handlePeminjaman(e) {
         laptopId,
         nip,
         namaPeminjam,
+        phone,
+        email,
         tim,
         keperluan,
         deskripsi,
@@ -1033,6 +1361,8 @@ function handlePeminjaman(e) {
             <div style="margin-bottom: 0.5rem;"><strong>Laptop:</strong> ${escapeHtml(laptopName)}</div>
             <div style="margin-bottom: 0.5rem;"><strong>Keperluan:</strong> ${escapeHtml(keperluan)}</div>
             <div style="margin-bottom: 0.5rem;"><strong>Tanggal:</strong> ${formatDate(tglPinjam)} s.d ${formatDate(tglKembali)}</div>
+            <div style="margin-bottom: 0.5rem;"><strong>No. HP:</strong> ${escapeHtml(phone)}</div>
+            <div style="margin-bottom: 0.5rem;"><strong>Gmail:</strong> ${escapeHtml(email)}</div>
         </div>
         <p style="margin-top: 1rem;">Apakah data di atas sudah benar?</p>
     `;
@@ -1056,6 +1386,8 @@ function processPeminjaman() {
         LAPTOP_ID: pendingPeminjamanData.laptopId,
         NAMA_PEMINJAM: pendingPeminjamanData.namaPeminjam,
         NIP: pendingPeminjamanData.nip,
+        NO_HP: pendingPeminjamanData.phone,
+        EMAIL: pendingPeminjamanData.email,
         TIM: pendingPeminjamanData.tim,
         DIVISI: pendingPeminjamanData.tim,
         KEPERLUAN: pendingPeminjamanData.keperluan,

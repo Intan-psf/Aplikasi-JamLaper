@@ -6,7 +6,7 @@
 const CONFIG = {
     // URL Google Apps Script Web App
     // Ganti dengan URL hasil deploy Apps Script Anda:
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxm9kCWuNCOC2iYlChGP0Q6DRbTS49k23-V-JOKzxtLunJ5JIx4sYvhEsrEKEprPIZq/exec',
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyEC0T6Bju3iW-YY4zMMPDYPl1foU7lYalltZ-TxMOvm9rDcjSEKaWxSHYixEM-Ptub/exec',
 
     // Batas maksimal peminjaman laptop dalam hari kalender
     MAX_BORROW_DAYS: 5,

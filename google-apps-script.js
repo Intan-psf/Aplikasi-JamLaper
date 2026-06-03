@@ -51,6 +51,8 @@ function handleRequest(e) {
             result = saveData(sheetName, rows);
         } else if (action === 'processReturn') {
             result = processReturnTransaction(params);
+        } else if (action === 'sendEmailReminders') {
+            result = sendEmailReminders();
         } else {
             result.message = 'InvenTrack API - BPS Kab. Boyolali';
             result.actions = ['getAllData', 'getSheet', 'appendRow', 'updateRow', 'clearAndInsert', 'processReturn'];
@@ -223,6 +225,14 @@ function appendData(sheetName, rowObj) {
         sheet.appendRow(rowData);
     }
 
+    if (sheetName === 'Data Peminjaman' && String(rowObj.STATUS || '').trim().toLowerCase() === 'aktif' && rowObj.EMAIL) {
+        try {
+            sendBorrowConfirmationEmail(rowObj);
+        } catch (e) {
+            Logger.log('Failed to send borrow confirmation email: ' + e);
+        }
+    }
+
     return { success: true, message: 'Row appended to ' + sheetName };
 }
 
@@ -251,6 +261,12 @@ function validateBorrowDuration(rowObj) {
 
 function parseDateOnly(value) {
     if (value === null || value === undefined) return null;
+
+    if (Object.prototype.toString.call(value) === '[object Date]') {
+        if (isNaN(value.getTime())) return null;
+        return normalizeDate(value);
+    }
+
     var dateText = String(value).trim();
     if (!dateText) return null;
 
@@ -267,6 +283,129 @@ function parseDateOnly(value) {
     var parsed = new Date(onlyDate + 'T00:00:00');
     if (isNaN(parsed.getTime())) return null;
     return parsed;
+}
+
+function normalizeDate(date) {
+    if (!date) return null;
+    date = new Date(date);
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
+function sendEmailReminders() {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Data Peminjaman');
+    if (!sheet) return { success: false, error: 'Sheet Data Peminjaman not found' };
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return { success: true, message: 'No peminjaman data' };
+
+    var headers = data[0].map(function (h) { return String(h || '').trim(); });
+    var idx = {};
+    headers.forEach(function (h, i) { idx[h] = i; });
+
+    var reminderH1 = 'REMINDER_H_1';
+    var reminderH0 = 'REMINDER_H_0';
+
+    [reminderH1, reminderH0].forEach(function (headerName) {
+        if (idx[headerName] === undefined) {
+            headers.push(headerName);
+            idx[headerName] = headers.length - 1;
+            sheet.getRange(1, headers.length).setValue(headerName);
+        }
+    });
+
+    var today = normalizeDate(new Date());
+    var emailCount = 0;
+    var updateValues = [];
+
+    for (var r = 1; r < data.length; r++) {
+        var row = data[r];
+        var status = String(row[idx['STATUS']] || '').trim().toLowerCase();
+        if (status !== 'aktif') continue;
+
+        var email = String(row[idx['EMAIL']] || '').trim();
+        if (!email) continue;
+
+        var dueDate = parseDateOnly(row[idx['TGL_KEMBALI_RENCANA']]);
+        if (!dueDate) continue;
+
+        var diffDays = Math.floor((dueDate - today) / (24 * 60 * 60 * 1000));
+        var sentH1 = String(row[idx[reminderH1]] || '').trim().toLowerCase();
+        var sentH0 = String(row[idx[reminderH0]] || '').trim().toLowerCase();
+
+        var borrowerName = String(row[idx['NAMA_PEMINJAM']] || 'Peminjam');
+        var laptopId = String(row[idx['LAPTOP_ID']] || '');
+        var purpose = String(row[idx['KEPERLUAN']] || '');
+        var borrowDate = String(row[idx['TGL_PINJAM']] || '');
+        var dueDateText = String(row[idx['TGL_KEMBALI_RENCANA']] || '');
+
+        if (diffDays === 1 && sentH1 !== 'ya') {
+            var subject = 'Reminder Pengembalian Laptop Besok';
+            var body = 'Halo ' + borrowerName + ',\n\n' +
+                'Ini pengingat bahwa laptop yang Anda pinjam harus dikembalikan besok.\n\n' +
+                'Detail peminjaman:\n' +
+                '- Laptop: ' + laptopId + '\n' +
+                '- Keperluan: ' + purpose + '\n' +
+                '- Tanggal pinjam: ' + borrowDate + '\n' +
+                '- Tanggal kembali: ' + dueDateText + '\n\n' +
+                'Mohon segera siapkan laptopnya dan kembalikan sesuai jadwal.\n\n' +
+                'Terima kasih.';
+            sendEmailMessage(email, subject, body);
+            sheet.getRange(r + 1, idx[reminderH1] + 1).setValue('YA');
+            emailCount++;
+        }
+
+        if (diffDays === 0 && sentH0 !== 'ya') {
+            var subject0 = 'Reminder Pengembalian Laptop Hari Ini';
+            var body0 = 'Halo ' + borrowerName + ',\n\n' +
+                'Ini pengingat bahwa hari ini adalah jadwal pengembalian laptop.\n\n' +
+                'Detail peminjaman:\n' +
+                '- Laptop: ' + laptopId + '\n' +
+                '- Keperluan: ' + purpose + '\n' +
+                '- Tanggal pinjam: ' + borrowDate + '\n' +
+                '- Tanggal kembali: ' + dueDateText + '\n\n' +
+                'Mohon segera kembalikan laptop sesuai ketentuan.\n\n' +
+                'Terima kasih.';
+            sendEmailMessage(email, subject0, body0);
+            sheet.getRange(r + 1, idx[reminderH0] + 1).setValue('YA');
+            emailCount++;
+        }
+    }
+
+    return { success: true, message: 'Email reminders processed', sent: emailCount };
+}
+
+function sendEmailMessage(email, subject, body) {
+    MailApp.sendEmail({
+        to: email,
+        subject: subject,
+        body: body
+    });
+    return true;
+}
+
+function sendBorrowConfirmationEmail(rowObj) {
+    var email = String(rowObj.EMAIL || '').trim();
+    if (!email) return false;
+
+    var name = String(rowObj.NAMA_PEMINJAM || 'Peminjam');
+    var laptop = String(rowObj.LAPTOP_ID || '');
+    var purpose = String(rowObj.KEPERLUAN || '');
+    var borrowDate = String(rowObj.TGL_PINJAM || '');
+    var dueDate = String(rowObj.TGL_KEMBALI_RENCANA || '');
+    var body = '' +
+        'Halo ' + name + ',\n\n' +
+        'Terima kasih telah meminjam laptop. Berikut detail peminjaman Anda:\n' +
+        '- Laptop: ' + laptop + '\n' +
+        '- Keperluan: ' + purpose + '\n' +
+        '- Tanggal pinjam: ' + borrowDate + '\n' +
+        '- Tanggal kembali: ' + dueDate + '\n\n' +
+        'Mohon kembalikan laptop sesuai jadwal.\n\n' +
+        'Salam,\nTim Inventrack BPS Boyolali';
+
+    var subject = 'Konfirmasi Peminjaman Laptop';
+    return sendEmailMessage(email, subject, body);
 }
 
 // ==========================================
@@ -354,7 +493,7 @@ function setupSheets() {
 
     // 3. Data Peminjaman
     createSheet(ss, 'Data Peminjaman', [
-        'ID', 'LAPTOP_ID', 'NAMA_PEMINJAM', 'NIP', 'DIVISI',
+        'ID', 'LAPTOP_ID', 'NAMA_PEMINJAM', 'NIP', 'NO_HP', 'EMAIL', 'DIVISI',
         'KEPERLUAN', 'DESKRIPSI_KEPERLUAN',
         'TGL_PINJAM', 'TGL_KEMBALI_RENCANA', 'STATUS',
         'Timestamp'

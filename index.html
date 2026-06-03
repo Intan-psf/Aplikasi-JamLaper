@@ -9,6 +9,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <link rel="stylesheet" href="style.css?v=20260422-1">
 </head>
 
@@ -117,6 +118,32 @@
                 </button>
             </div>
 
+            <!-- Analytics Charts Section -->
+            <div class="card" id="chartsCard">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-pie"></i> Analitik & Visualisasi Penggunaan</h2>
+                </div>
+                <div class="card-body">
+                    <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 2.5rem; margin-bottom: 2rem;">
+                        <!-- Chart: Kondisi Laptop -->
+                        <div class="chart-container" style="position: relative; height: 320px;">
+                            <h3><i class="fas fa-laptop"></i> Status Laptop</h3>
+                            <canvas id="chartLaptopStatus"></canvas>
+                        </div>
+                        <!-- Chart: Top Laptop Dipinjam -->
+                        <div class="chart-container" style="position: relative; height: 320px;">
+                            <h3><i class="fas fa-trophy"></i> Top 5 Laptop Dipinjam</h3>
+                            <canvas id="chartTopLaptops"></canvas>
+                        </div>
+                        <!-- Chart: Status Peminjaman -->
+                        <div class="chart-container" style="position: relative; height: 320px;">
+                            <h3><i class="fas fa-chart-donut"></i> Status Peminjaman</h3>
+                            <canvas id="chartPeminjamanStatus"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Riwayat Peminjaman Section -->
             <div class="card" id="riwayatCard">
                 <div class="card-header">
@@ -171,6 +198,22 @@
             </div>
         </section>
 
+        <!-- ===================== FAQ MODAL ===================== -->
+        <div id="faqModal" class="modal" style="display: none; z-index: 1000;">
+            <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h2><i class="fas fa-circle-question"></i> FAQ - Tanya Jawab Aplikasi</h2>
+                    <button class="modal-close" onclick="closeFAQModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="faqContent" style="padding: 1.5rem;">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeFAQModal()">Tutup</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ===================== PEMINJAMAN PAGE ===================== -->
         <section class="page" id="peminjamanPage">
             <div class="page-top-bar">
@@ -198,6 +241,14 @@
                                 <select id="pinjamNama" required>
                                     <option value="">-- Pilih Pegawai --</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="pinjamPhone"><i class="fas fa-phone"></i> No. HP</label>
+                                <input type="tel" id="pinjamPhone" placeholder="contoh: 6281234567890" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="pinjamEmail"><i class="fas fa-envelope"></i> Gmail</label>
+                                <input type="email" id="pinjamEmail" placeholder="contoh: nama@gmail.com" required>
                             </div>
                             <div class="form-group">
                                 <label for="pinjamTim"><i class="fas fa-users"></i> Tim</label>
@@ -429,6 +480,25 @@
         <div class="loader">
             <div class="loader-spinner"></div>
             <p id="loadingText">Memuat data...</p>
+        </div>
+    </div>
+
+    <!-- Floating FAQ Button -->
+    <button class="floating-faq-btn" onclick="showFAQModal()" title="Tanya Jawab">
+        <i class="fas fa-question"></i>
+    </button>
+
+    <!-- FAQ Modal -->
+    <div class="modal-overlay" id="faqModal" style="display:none;">
+        <div class="modal-content" style="max-width: 650px; width: 95vw; max-height: 85vh; overflow-y: auto; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-circle-question" style="color: var(--primary); margin-right: 0.75rem;"></i>Pertanyaan Umum (FAQ)</h3>
+                <button class="modal-close" onclick="closeFAQModal()">×</button>
+            </div>
+            <div class="modal-body" id="faqContent" style="padding: 0; min-height: 300px;"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeFAQModal()">Tutup</button>
+            </div>
         </div>
     </div>
 
