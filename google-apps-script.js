@@ -4,7 +4,7 @@
 // ==========================================
 
 // GANTI DENGAN ID SPREADSHEET ANDA
-const SPREADSHEET_ID = '12QxeGdy0sVTR2lqh0zxerzFM6HDXP_nuR-a4MOURj88';
+const SPREADSHEET_ID = '1P2SumfEcj-KLCRhDSQOQPOUD6jfYY_mFnbZlIrQK-nc';
 var MAX_BORROW_DAYS = 5;
 
 function doGet(e) { return handleRequest(e); }
@@ -347,7 +347,7 @@ function setupSheets() {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
     // 1. Data Laptop
-    createSheet(ss, 'Data Laptop', ['ID', 'MERK', 'TYPE', 'NUP', 'STATUS']);
+    createSheet(ss, 'Data Laptop', ['ID', 'MERK', 'TYPE', 'NOP', 'STATUS']);
 
     // 2. DATA PEGAWAI
     createSheet(ss, 'DATA PEGAWAI', ['NO', 'NIP', 'NAMA', 'TIM DIVISI']);
