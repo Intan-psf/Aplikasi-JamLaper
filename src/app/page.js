@@ -281,8 +281,8 @@ export default function Dashboard() {
         </div>
         <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-slate-600 bg-white items-center">
           <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></span> Dikembalikan</div>
-          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></span> Belum kembali di hari terakhir</div>
-          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-rose-500 shadow-sm"></span> Belum kembali di hari ke-5</div>
+          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></span> Belum kembali (H-1)</div>
+          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-rose-500 shadow-sm"></span> Belum kembali di hari terakhir</div>
         </div>
         
         {loading ? (
@@ -322,15 +322,19 @@ export default function Dashboard() {
                   let dotClass = '';
                   if (isReturned) {
                     dotClass = 'bg-emerald-500';
-                  } else {
-                    const tglPinjam = new Date(item.TGL_PINJAM).getTime();
-                    if (!isNaN(tglPinjam)) {
-                      // Hari peminjaman dihitung sebagai hari ke-1
-                      const diffDays = Math.floor((Date.now() - tglPinjam) / (1000 * 60 * 60 * 24)) + 1;
-                      if (diffDays >= 5) {
-                         dotClass = 'bg-rose-500';
-                      } else if (diffDays === 4) {
-                         dotClass = 'bg-amber-400';
+                  } else if (item.TGL_KEMBALI_RENCANA) {
+                    const now = new Date();
+                    now.setHours(0, 0, 0, 0);
+                    const dueDate = new Date(item.TGL_KEMBALI_RENCANA);
+                    dueDate.setHours(0, 0, 0, 0);
+
+                    if (!isNaN(dueDate.getTime())) {
+                      const diffDays = Math.round((dueDate - now) / (1000 * 60 * 60 * 24));
+
+                      if (diffDays <= 0) {
+                        dotClass = 'bg-rose-500';
+                      } else if (diffDays === 1) {
+                        dotClass = 'bg-amber-400';
                       }
                     }
                   }
@@ -341,7 +345,7 @@ export default function Dashboard() {
                     if (isNaN(d.getTime())) return dateStr;
                     return d.toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
                   };
-                  
+
                   return (
                     <tr onClick={() => setModal({ show: true, type: 'laptop', payload: item.LAPTOP_ID })} key={item.ID || idx} className="hover:bg-slate-50/80 transition-colors group cursor-pointer text-[13px]">
                       <td className="px-6 py-4 text-center font-bold text-indigo-600">{idx + 1}</td>
